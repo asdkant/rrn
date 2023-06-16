@@ -1,3 +1,4 @@
+// #![allow(unused_doc_comments)]
 //use core::time;
 use std::path::PathBuf;
 //use std::fmt::format;
@@ -38,7 +39,7 @@ use rayon::prelude::*;
             // #[arg(short = 'o', long = "overwrite")]
             // overwrite:bool,
         }
-
+/// Represents what we are going to do for each RAW file and their XMP sidecar
 struct ReplaceAction{
     o_raw: PathBuf,
     //o_raw_p: bool,
@@ -60,31 +61,38 @@ RAW, ow XMP          T    F    S   T    T  */
 }
 
 impl ReplaceAction{
+    /// `true` if old RAW exists and is a file
     fn o_raw_p(&self) -> bool {self.o_raw.exists() && self.o_raw.is_file()}
+    /// returns full path of old RAW as `&str`
     fn o_raw_filepath(&self) -> &str { self.o_raw.to_str().unwrap() }
     //fn overwriting(&self) -> bool { self.n_raw_p || self.n_xmp_p }
+    /// `true` if we can't parse the RAW or if we're overwriting something
     fn issues(&self) -> bool {
         self.n_raw_p || self.n_xmp_p || // overwriting
         self.timestamp.is_none()
     }
+    /// returns new RAW as `PathBuf` if we could parse the old one
     fn n_raw(&self) -> Result<PathBuf,()>{
         match &self.timestamp {
             None => Err(()),
             Some(tstamp) => Ok(prefix_file(&self.o_raw, tstamp))
         }
     }
+    /// returns old XMP as `PathBuf` if it's present
     fn o_xmp(&self) -> Result<PathBuf,()>{
         match self.o_xmp_p {
             false => Err(()),
             true => Ok(xmpize(&self.o_raw))
         }
     }
+    /// Returns new XMP as `PathBuf` if we're doing a new RAW to match
     fn n_xmp(&self) -> Result<PathBuf,()>{
         match self.n_raw() {
             Err(_) => {Err(())}
             Ok(new_raw) => {Ok(xmpize(&new_raw))}
         }
     }
+    
     fn new(old_raw: &PathBuf, datestamp: bool) -> Self {
         let before = std::time::Instant::now();
         let o_xmp_p = xmpize(old_raw).exists() && xmpize(old_raw).is_file();
@@ -110,6 +118,7 @@ impl ReplaceAction{
             n_raw_p, timestamp, o_xmp_p, n_xmp_p, time: before.elapsed()}
         
     }
+    /// Run the ReplaceAction
     fn run(&self){
         match self.issues() {
             true => {println!("Issues found, not running this.")}
@@ -131,8 +140,8 @@ impl fmt::Display for ReplaceAction{
                 false => write!(f,"{}{}","Could not parse: ".red(), self.o_raw_filepath()) }
             Some(tstamp) => {
                 let new_filename_display = match self.n_raw_p{
-                    true => format!("{}{}{}",tstamp,"_",filename_s(&self.o_raw)).red().to_string(),
-                    false => format!("{}{}{}",tstamp.bright_green(),"_".green(),filename_s(&self.o_raw))
+                    true => format!("{}{}{}",tstamp.red(),"_".red(),filename_s(&self.o_raw).red()),
+                    false => format!("{}{}{}",tstamp.bright_green(),"_".green(),filename_s(&self.o_raw).green().bold())
                 };
                 let xmp_display = match (self.o_xmp_p, self.n_xmp_p){
                     (false,false) => format!("{}","[.xmp]".hidden()), // happy path w/o XMP
@@ -141,20 +150,23 @@ impl fmt::Display for ReplaceAction{
                     (true,true)   => format!("[{}]",".xmp".red().bold()), // actual overwriting
                 };
 
-                if self.n_raw_p { write!(f,"{}{}{}", folder_s(&self.o_raw),new_filename_display, xmp_display )
-                }else{            write!(f,"{}{}{}", folder_s(&self.o_raw),new_filename_display, xmp_display ) }
+                // if self.n_raw_p { write!(f,"{}{}{}", folder_s(&self.o_raw),new_filename_display, xmp_display )
+                // }else{            write!(f,"{}{}{}", folder_s(&self.o_raw),new_filename_display, xmp_display ) }
+                write!(f,"{}{}{}", folder_s(&self.o_raw),new_filename_display, xmp_display )
             }
         }
     }
 }
 
+/// returns filename of `f` as a `String` prefixed by `p` and `_`
 fn prefix_file(f:&PathBuf,p:&str) -> PathBuf {
     f.with_file_name(format!("{}_{}",p,f.file_name().unwrap().to_str().unwrap())) }
-
+/// returns identical PathBuf but with added `.xmp` extension
 fn xmpize(f:&PathBuf) -> PathBuf{
     f.with_file_name(format!("{}.xmp",f.file_name().unwrap().to_str().unwrap())) }
-
+/// returns filename of `f` as a `String`
 fn filename_s(f:&PathBuf) -> String{format!("{}",f.file_name().unwrap().to_str().unwrap())}
+/// returns folder of `f` as a `String`
 fn folder_s(f:&PathBuf) -> String{
     match f.parent(){
         None => format!(""),
@@ -167,8 +179,8 @@ fn folder_s(f:&PathBuf) -> String{
         }
 }}
 
+/// checks existance and extension to see if file is not an XMP
 fn is_not_xmp(f:&PathBuf) -> bool{
-    // checkear que no arranque con <?xml
     match (f.extension(),f.exists()) {
         (_,false) => true,
         (None,true) => true,
@@ -223,7 +235,7 @@ fn main() {
         
     //for a in replace_actions { println!("{}",a);}
     // if !args.dryrun {for a in replace_actions{ a.run(); }}
-    /*
+    //*
     for a in replace_actions {
         let orp = if a.o_raw_p() {"ORP"}else{"ORA"};
         let nrp = if a.n_raw_p{"NRP"}else{"NRA"};
