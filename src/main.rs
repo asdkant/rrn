@@ -85,15 +85,6 @@ impl ReplaceAction{
             Ok(new_raw) => {Ok(xmpize(&new_raw))}
         }
     }
-    fn xmp_display(&self) -> String{
-        match (self.o_xmp_p,self.n_xmp_p) {
-            (false,false) => format!("{}","[.xmp]".hidden()), // happy path w/o XMP
-            (false,true)  => format!("[{}]",".xmp".dimmed().bold()), // "overwriting" (no source XMP)
-            (true,false)  => format!("[{}]",".xmp".green().bold()), // happy path w/XMP
-            (true,true)   => format!("[{}]",".xmp".red().bold()), // actual overwriting
-        }
-    }
-    
     fn new(old_raw: &PathBuf, datestamp: bool) -> Self {
         let before = std::time::Instant::now();
         let o_xmp_p = xmpize(old_raw).exists() && xmpize(old_raw).is_file();
@@ -143,17 +134,16 @@ impl fmt::Display for ReplaceAction{
                     true => format!("{}{}{}",tstamp,"_",filename_s(&self.o_raw)).red().to_string(),
                     false => format!("{}{}{}",tstamp.bright_green(),"_".green(),filename_s(&self.o_raw))
                 };
-                if self.n_raw_p {
-                    write!(f,"{}{}{}", folder_s(&self.o_raw),
-                        new_filename_display, self.xmp_display() )
-                }else{
-                    write!(f,"{}{}{}", folder_s(&self.o_raw), 
-                        new_filename_display, self.xmp_display() )
-                }
-                
+                let xmp_display = match (self.o_xmp_p, self.n_xmp_p){
+                    (false,false) => format!("{}","[.xmp]".hidden()), // happy path w/o XMP
+                    (false,true)  => format!("[{}]",".xmp".dimmed().bold()), // "overwriting" (no source XMP)
+                    (true,false)  => format!("[{}]",".xmp".green().bold()), // happy path w/XMP
+                    (true,true)   => format!("[{}]",".xmp".red().bold()), // actual overwriting
+                };
 
+                if self.n_raw_p { write!(f,"{}{}{}", folder_s(&self.o_raw),new_filename_display, xmp_display )
+                }else{            write!(f,"{}{}{}", folder_s(&self.o_raw),new_filename_display, xmp_display ) }
             }
-            
         }
     }
 }
@@ -177,14 +167,24 @@ fn folder_s(f:&PathBuf) -> String{
         }
 }}
 
+fn is_not_xmp(f:&PathBuf) -> bool{
+    // checkear que no arranque con <?xml
+    match (f.extension(),f.exists()) {
+        (_,false) => true,
+        (None,true) => true,
+        (Some(e),true) => e.to_ascii_lowercase() != "xmp"
+    }
+}
+
 fn main() {
     let program_init = std::time::Instant::now();
     let mut args = Cli::parse();
     rexiv2::initialize().expect("Unable to initialize rexiv2");
     //match args.datestamp { true  => println!("# Use datestamps"), false => println!("# Use timestamps") }
     //match args.dryrun{ true  => println!("# Do a dry-run"), false => println!("# Run for real") }
-
-    args.files.sort(); 
+    args.files.sort();
+    // clean up XMP files, we're only looking for RAW files here
+    args.files.retain(|x| is_not_xmp(&x));
 
     //let replace_actions: Vec<ReplaceAction> = c![ReplaceAction::new(filepath, args.datestamp), for filepath in &args.files];
     let replace_actions_start = std::time::Instant::now();
