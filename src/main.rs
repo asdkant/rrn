@@ -235,7 +235,7 @@ fn main() {
         
     //for a in replace_actions { println!("{}",a);}
     // if !args.dryrun {for a in replace_actions{ a.run(); }}
-    //*
+    /*
     for a in replace_actions {
         let orp = if a.o_raw_p() {"ORP"}else{"ORA"};
         let nrp = if a.n_raw_p{"NRP"}else{"NRA"};
